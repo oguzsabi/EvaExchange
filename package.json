@@ -1,5 +1,6 @@
 {
   "name": "evaexchange",
+  "type": "module",
   "version": "1.0.0",
   "description": "Simple share trading API",
   "main": "server.js",
