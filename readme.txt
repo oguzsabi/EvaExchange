@@ -1,0 +1,3 @@
+- Once in the project directory within a terminal, 'npm run start' can be used to start the project (or 'node server.js').
+- For database a remote server is used which is hosted by ElephantSQL.
+- Upon every start of the project the database will be dropped completely and tables will be created from scratch with seed data.
