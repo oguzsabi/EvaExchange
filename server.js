@@ -3,6 +3,7 @@ import bodyParser from "body-parser";
 import { sequelize } from "./app/models/index.js";
 import ShareRoutes from "./app/routes/share/share.routes.js";
 import cors from "cors";
+import { seed } from "./app/models/seed.js";
 
 const app = express();
 const corsOptions = {
@@ -18,12 +19,7 @@ app.use(json());
 // parse urlencoded requests
 app.use(urlencoded({ extended: true }));
 
-// simple get route
-app.get("/", (req, res) => {
-  res.json({ message: "Welcome to EvaExchange!" });
-});
-
-ShareRoutes(app);
+await ShareRoutes(app);
 
 // use set port and listen for requests
 app.listen(PORT, () => {
@@ -31,10 +27,12 @@ app.listen(PORT, () => {
 });
 
 sequelize
-  .sync()
-  .then(() => {
+  .sync({ force: true })
+  .then(async () => {
+    await seed();
+
     console.log("Synced db.");
   })
   .catch((err) => {
-    console.log("Failed to sync db: " + err.message);
+    console.error(`Failed to sync db: ${err.message}`);
   });

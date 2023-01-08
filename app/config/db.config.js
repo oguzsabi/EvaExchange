@@ -1,8 +1,8 @@
 export const dbConfig = {
-  HOST: "localhost",
-  USER: "postgres",
-  PASSWORD: "postgres",
-  DB: "eva_exchange",
+  HOST: "mel.db.elephantsql.com",
+  USER: "frvaytho",
+  PASSWORD: "U2VKIKv8_rcESJBE3NOngAuZqebsbph4",
+  DB: "frvaytho",
   dialect: "postgres",
   pool: {
     max: 5,
