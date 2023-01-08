@@ -2,6 +2,12 @@ import moment from "moment/moment.js";
 import db from "../../models/index.js";
 
 const Share = db.shares;
+const PriceLog = db.priceLogs;
+const Client = db.clients;
+const Portfolio = db.portfolios;
+const PortfolioShare = db.portfolioShares;
+const BuyLog = db.buyLogs;
+const SellLog = db.sellLogs;
 const Op = db.Sequelize.Op;
 
 // Get a single Share with id
@@ -67,7 +73,8 @@ export function createOne(req, res) {
   }
 
   Share.create(share)
-    .then((data) => {
+    .then(async (data) => {
+      await PriceLog.create({ shareId: data.id, price: data.price });
       res.send(data);
     })
     .catch((err) => {
@@ -107,7 +114,6 @@ export async function updateOne(req, res) {
 
       return;
     }
-  
   }
 
   if (
@@ -130,8 +136,12 @@ export async function updateOne(req, res) {
   };
 
   Share.update(updateData, { where: { id } })
-    .then((result) => {
+    .then(async (result) => {
       if (Array.isArray(result) && result[0] === 1) {
+        if (isPriceUpdate) {
+          await PriceLog.create({ shareId: id, price: body.price });
+        }
+
         res.send({
           message: "Share was updated successfully.",
         });
@@ -183,4 +193,203 @@ async function findOneByPk(id) {
   } catch (err) {
     return undefined;
   }
+}
+
+// Buy share
+export async function buyOne(req, res) {
+  const shareId = req.body.shareId;
+  const clientId = req.body.clientId;
+  const quantity = req.body.quantity;
+
+  const [share, client] = await validateBuySellBody(
+    shareId,
+    clientId,
+    quantity
+  );
+
+  if (!share || !client) {
+    return;
+  }
+
+  const remainingShareQuantity = share.quantity - quantity;
+
+  if (remainingShareQuantity < 0) {
+    res.status(400).send({
+      message: `Desired quantity cannot be bought because the remaining quantity is ${share.quantity}.`,
+    });
+
+    return;
+  }
+
+  Share.update(
+    { quantity: remainingShareQuantity },
+    {
+      where: { id: shareId },
+    }
+  )
+    .then(async (result) => {
+      if (Array.isArray(result) && result[0] === 1) {
+        const portfolioShareWhereObject = {
+          where: { shareId, clientId, portfolioId: client.portfolio.id },
+        };
+        const portfolioShare = await PortfolioShare.findAll(
+          portfolioShareWhereObject
+        );
+
+        if (portfolioShare[0]) {
+          await PortfolioShare.update(
+            { quantity: portfolioShare[0].quantity + quantity },
+            portfolioShareWhereObject
+          );
+        } else {
+          await PortfolioShare.create({
+            ...portfolioShareWhereObject.where,
+            quantity,
+          });
+        }
+
+        await BuyLog.create({
+          ...portfolioShareWhereObject.where,
+          quantity,
+          price: share.price,
+        });
+
+        res.send({
+          message: "Share was bought successfully!",
+        });
+
+        return;
+      }
+
+      res.send({
+        message: `Cannot buy Share with id=${shareId}.`,
+      });
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || `Could not buy Share with id=${shareId}`,
+      });
+    });
+}
+
+// Sell share
+export async function sellOne(req, res) {
+  const shareId = req.body.shareId;
+  const clientId = req.body.clientId;
+  const quantity = req.body.quantity;
+
+  const [share, client] = await validateBuySellBody(
+    shareId,
+    clientId,
+    quantity
+  );
+
+  if (!share || !client) {
+    return;
+  }
+
+  const portfolioShareWhereObject = {
+    where: { shareId, clientId, portfolioId: client.portfolio.id },
+  };
+  const portfolioShare = await PortfolioShare.findAll(
+    portfolioShareWhereObject
+  );
+
+  if (!portfolioShare[0]) {
+    res.status(400).send({
+      message: `Desired client does not have the desired share in their portfolio.`,
+    });
+
+    return;
+  }
+
+  const remainingPortfolioShareQuantity = portfolioShare[0].quantity - quantity;
+
+  if (remainingPortfolioShareQuantity < 0) {
+    res.status(400).send({
+      message: `Desired quantity cannot be sold because the desired client's remaining quantity is ${share.quantity}.`,
+    });
+
+    return;
+  }
+
+  Share.update(
+    { quantity: share.quantity + quantity },
+    {
+      where: { id: shareId },
+    }
+  )
+    .then(async (result) => {
+      if (Array.isArray(result) && result[0] === 1) {
+        if (remainingPortfolioShareQuantity === 0) {
+          await PortfolioShare.destroy({
+            where: { id: portfolioShare[0].id },
+          });
+        } else {
+          await PortfolioShare.update(
+            { quantity: remainingPortfolioShareQuantity },
+            portfolioShareWhereObject
+          );
+        }
+
+        await SellLog.create({
+          ...portfolioShareWhereObject.where,
+          quantity,
+          price: share.price,
+        });
+
+        res.send({
+          message: "Share was sold successfully!",
+        });
+
+        return;
+      }
+
+      res.send({
+        message: `Cannot sell Share with id=${shareId}.`,
+      });
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || `Could not sell Share with id=${shareId}`,
+      });
+    });
+}
+
+async function validateBuySellBody(shareId, clientId, quantity) {
+  if (
+    !shareId ||
+    !clientId ||
+    !quantity ||
+    !Number.isInteger(quantity) ||
+    quantity < 1
+  ) {
+    res.status(400).send({
+      message:
+        "Incorrect body. Please make sure the required share, user, and quantity information is set correctly.",
+    });
+
+    return [null, null];
+  }
+
+  const share = await findOneByPk(shareId);
+  const client = await Client.findByPk(clientId, { include: Portfolio });
+
+  if (!share) {
+    res.status(400).send({
+      message: "Desired share must exist.",
+    });
+
+    return [null, null];
+  }
+
+  if (!client.portfolio) {
+    res.status(400).send({
+      message: "Desired client must have a portfolio.",
+    });
+
+    return [null, null];
+  }
+
+  return [share, client];
 }

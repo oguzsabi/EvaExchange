@@ -19,5 +19,11 @@ export default (app) => {
   // Delete a Share with id
   router.delete("/:id", share.deleteOne);
 
+  // Buy Share
+  router.post("/buy", share.buyOne);
+
+  // Sell Share
+  router.post("/sell", share.sellOne);
+
   app.use("/api/shares", router);
 };

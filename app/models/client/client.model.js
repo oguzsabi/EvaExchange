@@ -11,7 +11,7 @@ export default (sequelize, Sequelize) => {
     },
   });
 
-  Client.hasMany(Portfolio(sequelize, Sequelize));
+  Client.hasOne(Portfolio(sequelize, Sequelize));
   Client.hasMany(PortfolioShare(sequelize, Sequelize));
   Client.hasMany(BuyLog(sequelize, Sequelize));
   Client.hasMany(SellLog(sequelize, Sequelize));
