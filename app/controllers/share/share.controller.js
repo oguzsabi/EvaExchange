@@ -1,5 +1,6 @@
 import moment from "moment/moment.js";
 import db from "../../models/index.js";
+
 const Share = db.shares;
 const Op = db.Sequelize.Op;
 
@@ -46,6 +47,8 @@ export function createOne(req, res) {
     res.status(400).send({
       message: "Body can not be empty.",
     });
+
+    return;
   }
 
   const share = {
@@ -54,6 +57,14 @@ export function createOne(req, res) {
     price: req.body.price,
     quantity: req.body.quantity,
   };
+
+  if (share.price <= 0) {
+    res.status(400).send({
+      message: "Price must be a positive number.",
+    });
+
+    return;
+  }
 
   Share.create(share)
     .then((data) => {
@@ -69,15 +80,18 @@ export function createOne(req, res) {
 // Update one share with id
 export async function updateOne(req, res) {
   const id = req.params.id;
-  const isPriceUpdate = req.body.hasOwnProperty("price");
+  const body = req.body;
+  const isPriceUpdate = body.hasOwnProperty("price");
+  const isSymbolUpdate = body.hasOwnProperty("symbol");
   const nowInUtc = moment.utc();
+  const share = await findOneByPk(id);
+  const symbolRegEx = /^[a-z]+$/i;
 
   if (isPriceUpdate) {
-    const share = await findOneByPk(id);
     const priceLastUpdatedAt = moment(share.priceLastUpdatedAt);
 
     if (nowInUtc.clone().subtract(1, "hour").isBefore(priceLastUpdatedAt)) {
-      res.status(500).send({
+      res.status(400).send({
         message: `Prices can only be updated on an hourly basis. Next update can be made at ${priceLastUpdatedAt
           .add(1, "hour")
           .format("YYYY-MM-DD HH:mm:ss")}`,
@@ -85,10 +99,33 @@ export async function updateOne(req, res) {
 
       return;
     }
+
+    if (body.price <= 0) {
+      res.status(400).send({
+        message: "Price must be a positive number.",
+      });
+
+      return;
+    }
+  
+  }
+
+  if (
+    isSymbolUpdate &&
+    (body.symbol.length !== 3 || !symbolRegEx.test(body.symbol))
+  ) {
+    res.status(400).send({
+      message: "Share symbols must be exactly 3 letters.",
+    });
+
+    return;
   }
 
   const updateData = {
-    ...req.body,
+    ...(body.symbol ? { symbol: body.symbol } : {}),
+    ...(body.name ? { name: body.name } : {}),
+    ...(body.price ? { price: body.price } : {}),
+    ...(body.quantity ? { quantity: body.quantity } : {}),
     ...(isPriceUpdate ? { priceLastUpdatedAt: nowInUtc } : {}),
   };
 

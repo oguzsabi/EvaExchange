@@ -1,23 +1,23 @@
-import * as shares from "../../controllers/share/share.controller.js";
+import * as share from "../../controllers/share/share.controller.js";
 import express from "express";
 
-export default async (app) => {
+export default (app) => {
   const router = express.Router();
 
   // Retrieve a single Share with id
-  router.get("/:id", shares.getOne);
+  router.get("/:id", share.getOne);
 
   // Retrieve all Shares
-  router.get("/", shares.getAll);
+  router.get("/", share.getAll);
 
   // Create a new Share
-  router.post("/", shares.createOne);
+  router.post("/", share.createOne);
 
   // Update a Share with id
-  router.put("/:id", shares.updateOne);
+  router.put("/:id", share.updateOne);
 
   // Delete a Share with id
-  router.delete("/:id", shares.deleteOne);
+  router.delete("/:id", share.deleteOne);
 
   app.use("/api/shares", router);
 };

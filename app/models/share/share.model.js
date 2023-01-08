@@ -1,3 +1,8 @@
+import PortfolioShare from "../portfolio-share/portfolio-share.model.js";
+import BuyLog from "../buy-log/buy-log.model.js";
+import SellLog from "../sell-log/sell-log.model.js";
+import PriceLog from "../price-log/price-log.model.js";
+
 export default (sequelize, Sequelize) => {
   const Share = sequelize.define("share", {
     symbol: {
@@ -6,23 +11,28 @@ export default (sequelize, Sequelize) => {
       unique: true,
     },
     name: {
-      type: Sequelize.CHAR(100),
+      type: Sequelize.STRING(100),
       allowNull: false,
     },
     price: {
-      type: Sequelize.DECIMAL(1000,2),
+      type: Sequelize.DECIMAL(1000, 2).UNSIGNED,
       allowNull: false,
     },
     quantity: {
-      type: Sequelize.BIGINT,
+      type: Sequelize.INTEGER.UNSIGNED,
       allowNull: false,
     },
     priceLastUpdatedAt: {
       type: Sequelize.DATE,
+      defaultValue: Sequelize.NOW,
       allowNull: false,
-      defaultValue: Sequelize.NOW
     },
   });
+
+  Share.hasMany(PortfolioShare(sequelize, Sequelize));
+  Share.hasMany(BuyLog(sequelize, Sequelize));
+  Share.hasMany(SellLog(sequelize, Sequelize));
+  Share.hasMany(PriceLog(sequelize, Sequelize));
 
   return Share;
 };
